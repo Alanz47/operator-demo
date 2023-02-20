@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -50,6 +52,29 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	_ = log.FromContext(ctx)
 
 	// TODO(user): your logic here
+	// 获取cr对象
+	app := new(webappv1.App)
+	if err := r.Client.Get(ctx, req.NamespacedName, app); err != nil {
+		if errors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	// 复制对象
+	appCopy := app.DeepCopy()
+
+	// 获取需要的对象
+	action := appCopy.Spec.Action
+	object := appCopy.Spec.Object
+
+	// 拼接结果
+	result := strings.Join([]string{action, ", ", object, "!"}, "")
+
+	appCopy.Status.Result = result
+	if err := r.Status().Update(ctx, appCopy); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
